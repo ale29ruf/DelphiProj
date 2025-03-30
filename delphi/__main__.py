@@ -130,6 +130,15 @@ async def process_cache(
             hook: latent_range for hook in hookpoints
         }  # The latent range to explain
 
+
+    """
+    The LatentDataset will construct lazy loaded buffers that load activations into 
+    memory when called as an iterator object. 
+    For ease of use with the autointerp pipeline, we have a constructor and sampler: 
+    the constructor defines builds the context windows from the cached activations 
+    and tokens, and the sampler divides these contexts into a training and testing set, 
+    used to generate explanations and evaluate them.
+    """
     dataset = LatentDataset(
         raw_dir=str(latents_path),
         sampler_cfg=run_cfg.sampler_cfg,
@@ -168,6 +177,11 @@ async def process_cache(
             f"Explainer provider {run_cfg.explainer_provider} not supported"
         )
 
+
+    """
+    We currently support using OpenRouter's OpenAI compatible API or running locally with VLLM. 
+    Define the client you want to use, then create an explainer from the .explainers module.
+    """
     def explainer_postprocess(result):
         with open(explanations_path / f"{result.record.latent}.txt", "wb") as f:
             f.write(orjson.dumps(result.explanation))
@@ -187,7 +201,19 @@ async def process_cache(
             verbose=run_cfg.verbose,
         )
 
+    
+    """
+    The explainer should be added to a pipe, which will send the explanation requests to the client. 
+    The pipe should have a function that happens after the request is completed, 
+    to e.g. save the data, and could also have a function that happens before the request is sent, 
+    e.g to transform some of the data.
+    """
     explainer_pipe = Pipe(process_wrapper(explainer, postprocess=explainer_postprocess))
+    """
+    The pipe should then be used in a pipeline. Running the pipeline will send requests to the client 
+    in batches of paralel requests.
+    """
+
 
     # Builds the record from result returned by the pipeline
     def scorer_preprocess(result):
@@ -229,6 +255,10 @@ async def process_cache(
         ),
     )
 
+
+    """
+    FINAL PIPELINE
+    """
     pipeline = Pipeline(
         dataset,
         explainer_pipe,
@@ -278,6 +308,12 @@ def populate_cache(
             ]
             tokens = truncated_tokens.reshape(-1, cache_cfg.cache_ctx_len)
 
+
+    """
+    The first step to generate explanations is to cache sparse model activations. 
+    To do so, load your sparse models into the base model, load the tokens you want 
+    to cache the activations from, create a LatentCache object and run it.
+    """
     cache = LatentCache(
         model,
         hookpoint_to_sparse_encode,
@@ -287,6 +323,11 @@ def populate_cache(
     )
     cache.run(cache_cfg.n_tokens, tokens)
 
+    """
+    The second step is to save the splits to the latents path.
+    Caching saves .safetensors of dict["activations", "locations", "tokens"]
+    Safetensors are split into shards over the width of the autoencoder.
+    """
     if run_cfg.verbose:
         cache.generate_statistics_cache()
 
@@ -296,7 +337,6 @@ def populate_cache(
         n_splits=cache_cfg.n_splits,
         save_dir=latents_path,
     )
-
     cache.save_config(save_dir=latents_path, cfg=cache_cfg, model_name=run_cfg.model)
 
 
