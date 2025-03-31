@@ -116,6 +116,10 @@ class RunConfig(Serializable):
 
     hookpoints: list[str] = list_field()
     """list of model hookpoints to attach sparse models to."""
+    """
+    "hookpoints" refer to specific locations or layers in the model's architecture 
+    where you can "hook into" or attach additional functionality (sparse autoencoders (SAEs)).
+    """
 
     explainer_model: str = field(
         default="hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",

@@ -29,7 +29,10 @@ from delphi.sparse_coders import load_hooks_sparse_coders, load_sparse_coders
 from delphi.utils import assert_type, load_tokenized_data
 
 
+# Loads the model and its artifacts
 def load_artifacts(run_cfg: RunConfig):
+
+    # Determines the optimal data type for model weights based on configuration and hardware support
     if run_cfg.load_in_8bit:
         dtype = torch.float16
     elif torch.cuda.is_bf16_supported():
@@ -37,23 +40,30 @@ def load_artifacts(run_cfg: RunConfig):
     else:
         dtype = "auto"
 
+    # Loads a pre-trained model using Hugging Face's AutoModel
     model = AutoModel.from_pretrained(
         run_cfg.model,
-        device_map={"": "cuda"},
+        device_map={"": "cuda"}, # Places the model on GPU
         quantization_config=(
             BitsAndBytesConfig(load_in_8bit=run_cfg.load_in_8bit)
-            if run_cfg.load_in_8bit
-            else None
-        ),
-        torch_dtype=dtype,
-        token=run_cfg.hf_token,
+            if run_cfg.load_in_8bit else None ), 
+        torch_dtype=dtype,  # Sets the data type for model weights
+        token=run_cfg.hf_token, # Hugging Face API token for accessing models
     )
 
+    # Loads sparse autoencoders (SAEs) for different hookpoints in the model
     hookpoint_to_sparse_encode, transcode = load_hooks_sparse_coders(
         model,
         run_cfg,
-        compile=True,
+        compile=True, # Enables PyTorch compilation for better performance
     )
+    """ 
+    hookpoint_to_sparse_encode: Dictionary of sparse "encoders" for each hookpoint.
+    transcode: When the model's output format needs to be converted to match 
+               the sparse autoencoders' input requirements
+               (It allows for compatibility between different parts of the system).
+               The load_hooks_sparse_coders function determines if transcoding is needed.
+    """
 
     return run_cfg.hookpoints, hookpoint_to_sparse_encode, model, transcode
 
@@ -111,18 +121,21 @@ async def process_cache(
     tokenizer: PreTrainedTokenizer | PreTrainedTokenizerFast,
     latent_range: Tensor | None,
 ):
+    
     """
     Converts SAE latent activations in on-disk cache in the `latents_path` directory
     to latent explanations in the `explanations_path` directory and explanation
     scores in the `fuzz_scores_path` directory.
     """
-    explanations_path.mkdir(parents=True, exist_ok=True)
 
+    # Creates directories for: Explanations, Fuzz scores Detection scores
+    explanations_path.mkdir(parents=True, exist_ok=True)
     fuzz_scores_path = scores_path / "fuzz"
     detection_scores_path = scores_path / "detection"
     fuzz_scores_path.mkdir(parents=True, exist_ok=True)
     detection_scores_path.mkdir(parents=True, exist_ok=True)
 
+    # Creates a dictionary mapping hookpoints to their latent ranges. Used to specify which latents to explain
     if latent_range is None:
         latent_dict = None
     else:
@@ -135,9 +148,8 @@ async def process_cache(
     The LatentDataset will construct lazy loaded buffers that load activations into 
     memory when called as an iterator object. 
     For ease of use with the autointerp pipeline, we have a constructor and sampler: 
-    the constructor defines builds the context windows from the cached activations 
-    and tokens, and the sampler divides these contexts into a training and testing set, 
-    used to generate explanations and evaluate them.
+    - the constructor defines builds the context windows from the cached activations and tokens
+    - the sampler divides these contexts into a training and testing set, used to generate explanations and evaluate them.
     """
     dataset = LatentDataset(
         raw_dir=str(latents_path),
@@ -148,16 +160,21 @@ async def process_cache(
         tokenizer=tokenizer,
     )
 
+
+    """
+    We currently support using OpenRouter's OpenAI compatible API or running locally with VLLM. 
+    Define the client you want to use, then create an explainer from the .explainers module.
+    """
     if run_cfg.explainer_provider == "offline":
         client = Offline(
             run_cfg.explainer_model,
             max_memory=0.9,
-            # Explainer models context length - must be able to accommodate the longest
-            # set of examples
+            # Explainer models context length - must be able to accommodate the longest set of examples
             max_model_len=run_cfg.explainer_model_max_len,
             num_gpus=run_cfg.num_gpus,
             statistics=run_cfg.verbose,
         )
+
     elif run_cfg.explainer_provider == "openrouter":
         if (
             "OPENROUTER_API_KEY" not in os.environ
@@ -172,16 +189,13 @@ async def process_cache(
             run_cfg.explainer_model,
             api_key=os.environ["OPENROUTER_API_KEY"],
         )
+        
     else:
         raise ValueError(
             f"Explainer provider {run_cfg.explainer_provider} not supported"
         )
 
 
-    """
-    We currently support using OpenRouter's OpenAI compatible API or running locally with VLLM. 
-    Define the client you want to use, then create an explainer from the .explainers module.
-    """
     def explainer_postprocess(result):
         with open(explanations_path / f"{result.record.latent}.txt", "wb") as f:
             f.write(orjson.dumps(result.explanation))
@@ -321,7 +335,7 @@ def populate_cache(
         transcode=transcode,
         log_path=log_path,
     )
-    cache.run(cache_cfg.n_tokens, tokens)
+    cache.run(cache_cfg.n_tokens, tokens) # Processes tokens in batches to generate latent activations using sparse encoders at specified hookpoints
 
     """
     The second step is to save the splits to the latents path.
@@ -372,42 +386,61 @@ def non_redundant_hookpoints(
 async def run(
     run_cfg: RunConfig,
 ):
+    
+    """
+    Creates a base directory for results.
+    If a specific name is provided in the config, creates a subdirectory with that name.
+    Creates all necessary parent directories
+    """
     base_path = Path.cwd() / "results"
     if run_cfg.name:
         base_path = base_path / run_cfg.name
-
     base_path.mkdir(parents=True, exist_ok=True)
 
+
+    # Saves the run configuration to a JSON file
     run_cfg.save_json(base_path / "run_config.json", indent=4)
 
-    latents_path = base_path / "latents"
-    explanations_path = base_path / "explanations"
-    scores_path = base_path / "scores"
-    neighbours_path = base_path / "neighbours"
-    visualize_path = base_path / "visualize"
+    # Sets up paths for different types of outputs:
+    latents_path = base_path / "latents" # For storing model activations
+    explanations_path = base_path / "explanations" # For storing explanation of the latents
+    scores_path = base_path / "scores" # For storing evaluation scores
+    neighbours_path = base_path / "neighbours" # For storing neighbor relationships
+    visualize_path = base_path / "visualize" # For storing visualization data
 
+
+    # Creates a range of latents to analyze (if specified)
     latent_range = torch.arange(run_cfg.max_latents) if run_cfg.max_latents else None
 
+    # Loads the model and its artifacts
     hookpoints, hookpoint_to_sparse_encode, model, transcode = load_artifacts(run_cfg)
+
+    # Initializes the tokenizer
     tokenizer = AutoTokenizer.from_pretrained(run_cfg.model, token=run_cfg.hf_token)
 
+
+    # This code determines which hookpoints need to be processed by checking which ones haven't been processed yet
     nrh = assert_type(
         dict,
         non_redundant_hookpoints(
             hookpoint_to_sparse_encode, latents_path, "cache" in run_cfg.overwrite
         ),
     )
-    if nrh:
-        populate_cache(
+
+    if nrh: # proceeds if there are non-redundant hookpoints to process
+        populate_cache( # Populates an on-disk cache with SAE (Sparse Autoencoder) latent activations
             run_cfg,
             model,
-            nrh,
-            latents_path,
-            tokenizer,
+            nrh, # The hookpoints that need processing
+            latents_path, # Where to save the results
+            tokenizer, # For processing text input
             transcode,
         )
 
-    del model, hookpoint_to_sparse_encode
+    del model, hookpoint_to_sparse_encode 
+    # Frees up memory by deleting the model and sparse encoders 
+    # These are no longer needed after cache population
+
     if run_cfg.constructor_cfg.non_activating_source == "neighbours":
         nrh = assert_type(
             list,
@@ -425,12 +458,21 @@ async def run(
     else:
         print("Skipping neighbour creation")
 
+    # Checks which hookpoints need score processing. Avoids reprocessing already scored hookpoints.
     nrh = assert_type(
         list,
         non_redundant_hookpoints(
             hookpoints, scores_path, "scores" in run_cfg.overwrite
         ),
     )
+
+    """
+    If there are hookpoints needing processing:
+    - Processes the cached activations
+    - Generates explanations
+    - Calculates scores
+    - Runs asynchronously for better performance
+    """
     if nrh:
         await process_cache(
             run_cfg,
@@ -442,13 +484,14 @@ async def run(
             latent_range,
         )
 
+
     if run_cfg.verbose:
         log_results(scores_path, visualize_path, run_cfg.hookpoints)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_arguments(RunConfig, dest="run_cfg")
+    parser.add_arguments(RunConfig, dest="run_cfg") # Adds all the configuration options from the RunConfig class to the parser
     args = parser.parse_args()
 
     asyncio.run(run(args.run_cfg))

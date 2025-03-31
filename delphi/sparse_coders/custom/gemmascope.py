@@ -27,6 +27,7 @@ def load_gemma_autoencoders(
             "res",
             "mlp",
         ], "Only res and mlp are supported for gemma autoencoders"
+        
         hookpoint = (
             f"layers.{layer}"
             if type == "res"
