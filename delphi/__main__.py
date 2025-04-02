@@ -488,10 +488,24 @@ async def run(
     if run_cfg.verbose:
         log_results(scores_path, visualize_path, run_cfg.hookpoints)
 
-
+"""
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_arguments(RunConfig, dest="run_cfg") # Adds all the configuration options from the RunConfig class to the parser
     args = parser.parse_args()
 
     asyncio.run(run(args.run_cfg))
+"""
+
+def main():
+    """
+    Entry point for command line execution.
+    Parses arguments and runs the main async function.
+    """
+    parser = ArgumentParser()
+    parser.add_arguments(RunConfig, dest="run_cfg")
+    args = parser.parse_args()
+    asyncio.run(run(args.run_cfg))
+
+if __name__ == "__main__":
+    main()
