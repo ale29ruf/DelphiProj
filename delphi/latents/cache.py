@@ -266,19 +266,25 @@ class LatentCache:
                 total_tokens += tokens_per_batch
 
                 with torch.no_grad():
-                    with collect_activations(
-                        self.model,
-                        list(self.hookpoint_to_sparse_encode.keys()),
-                        self.transcode,
-                    ) as activations:
+                    with collect_activations(self.model, list(self.hookpoint_to_sparse_encode.keys()), self.transcode, ) as activations:
+                        
+                        # 1. Passa i token attraverso il modello base
                         self.model(batch.to(self.model.device))
 
+                        # 2. Per ogni hookpoint (A specifici "hookpoints" nel modello, le attivazioni vengono intercettate)
                         for hookpoint, latents in activations.items():
+
+                            # 3. Passa le attivazioni attraverso l'autoencoder sparso corrispondente
                             sae_latents = self.hookpoint_to_sparse_encode[hookpoint](
                                 latents
                             )
+
+                            # 4. Aggiungi le attivazioni all'in-memory cache
                             self.cache.add(sae_latents, batch, batch_number, hookpoint)
+
+                            # Viene tenuto traccia di quali neuroni si "attivano" più frequentemente
                             firing_counts = (sae_latents > 0).sum((0, 1))
+
                             if self.width is None:
                                 self.width = sae_latents.shape[2]
 

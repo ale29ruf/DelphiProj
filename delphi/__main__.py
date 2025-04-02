@@ -335,7 +335,7 @@ def populate_cache(
         transcode=transcode,
         log_path=log_path,
     )
-    cache.run(cache_cfg.n_tokens, tokens) # Processes tokens in batches to generate latent activations using sparse encoders at specified hookpoints
+    cache.run(cache_cfg.n_tokens, tokens) # Importante: Processes tokens in batches to generate latent activations using sparse encoders at specified hookpoints
 
     """
     The second step is to save the splits to the latents path.

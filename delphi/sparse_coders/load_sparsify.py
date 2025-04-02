@@ -117,6 +117,8 @@ def load_sparsify_hooks(
         dict[str, Callable]: A dictionary mapping hookpoints to encode functions.
     """
     device = model.device or "cpu"
+
+    # Caricamento degli autoencoder sparsi (da path locale oppure scaricandoli da Hugging Face)
     sparse_model_dict = load_sparsify_sparse_coders(
         name,
         hookpoints,
@@ -142,3 +144,9 @@ def load_sparsify_hooks(
             if sparse_model.cfg.skip_connection:
                 transcode = True
     return hookpoint_to_sparse_encode, transcode
+    """
+    Per esempio, se specifichi hookpoints=['layers.5']:
+    Viene caricato un autoencoder specifico per il layer 5
+    Viene trovato il percorso effettivo nel modello per accedere a quel layer
+    Viene creata una funzione che intercetta le attivazioni in quel punto e le passa attraverso l'autoencoder
+    """
