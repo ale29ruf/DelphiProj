@@ -256,7 +256,16 @@ class LatentCache:
             n_tokens: Total number of tokens to process.
             tokens: Input tokens.
         """
+        print("Numero totale di token:", tokens.numel())
+        print("Numero di token richiesti:", n_tokens)
         token_batches = self.load_token_batches(n_tokens, tokens)
+        print("Numero di batch creati:", len(token_batches))
+        if len(token_batches) > 0:
+            print("Dimensione del primo batch:", token_batches[0].shape)
+            # Oppure, se è un tensore:
+            print("Numero di token nel primo batch:", token_batches[0].numel())
+        else:
+            print("Nessun batch creato!")
 
         total_tokens = 0
         total_batches = len(token_batches)
