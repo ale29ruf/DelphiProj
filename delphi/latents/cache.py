@@ -261,7 +261,7 @@ class LatentCache:
         
         token_batches = self.load_token_batches(n_tokens, tokens)
         print("Numero di batch creati:", len(token_batches))
-        print("Numero di token nel primo batch:", token_batches[0].numel())
+        print("Numero di token nel primo batch:", token_batches[0].numel()) 
 
         total_tokens = 0
         total_batches = len(token_batches)
