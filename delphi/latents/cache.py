@@ -495,35 +495,54 @@ def generate_statistics_cache(
     print(f"Activations shape: {activations.shape}")
     print(f"Width: {width}")
     
-    print("\nLatent locations range:")
-    print(f"Min batch index: {latent_locations[:, 0].min().item()}")
-    print(f"Max batch index: {latent_locations[:, 0].max().item()}")
-    print(f"Min sequence index: {latent_locations[:, 1].min().item()}")
-    print(f"Max sequence index: {latent_locations[:, 1].max().item()}")
+    # Verifica che latent_locations abbia la forma corretta
+    if len(latent_locations.shape) != 2 or latent_locations.shape[1] < 2:
+        print("ERROR: latent_locations ha una forma non valida")
+        print(f"Shape attesa: (N, 3), Shape trovata: {latent_locations.shape}")
+        return
+        
+    # Estrai le posizioni in modo sicuro
+    batch_indices = latent_locations[:, 0] if latent_locations.shape[1] > 0 else None
+    seq_indices = latent_locations[:, 1] if latent_locations.shape[1] > 1 else None
+    
+    if batch_indices is not None and seq_indices is not None:
+        print("\nIndici batch:")
+        print(f"Min: {batch_indices.min().item()}")
+        print(f"Max: {batch_indices.max().item()}")
+        print(f"Media: {batch_indices.float().mean().item():.2f}")
+        print(f"Numero totale di indici: {len(batch_indices)}")
+        
+        print("\nIndici sequenza:")
+        print(f"Min: {seq_indices.min().item()}")
+        print(f"Max: {seq_indices.max().item()}")
+        print(f"Media: {seq_indices.float().mean().item():.2f}")
+    
+    # Normalizza gli indici dei batch per sicurezza
+    if batch_indices is not None:
+        batch_size = tokens.shape[0]
+        latent_locations = latent_locations.clone()
+        latent_locations[:, 0] = torch.clamp(batch_indices, 0, batch_size - 1)
     
     total_n_tokens = tokens.shape[0] * tokens.shape[1]
-    print(f"Total tokens: {total_n_tokens}")
+    print(f"\nTotal tokens: {total_n_tokens}")
     
+    # Estrai le posizioni e i latenti in modo sicuro
     latent_locations, latents = latent_locations[:, :2], latent_locations[:, 2]
     
-    # Aggiungi controllo e correzione
-    if latent_locations[:, 0].max() >= tokens.shape[0]:
-        print("\nWARNING: Batch indices in latent_locations exceed tokens batch dimension!")
-        print(f"Will filter out invalid indices...")
-        
-        # Filtra le posizioni valide
-        valid_mask = latent_locations[:, 0] < tokens.shape[0]
-        print(f"Valid locations: {valid_mask.sum()} out of {len(valid_mask)}")
-        
-        latent_locations = latent_locations[valid_mask]
-        latents = latents[valid_mask]
-        activations = activations[valid_mask]
-    
-    # Continua con il codice originale
+    # Ordina e processa
     sorted_latents, latent_indices = latents.sort()
     sorted_activations = activations[latent_indices]
-    sorted_tokens = tokens[latent_locations[latent_indices]]
-
+    
+    # Accesso sicuro ai token
+    try:
+        sorted_tokens = tokens[latent_locations[latent_indices]]
+    except IndexError as e:
+        print("\nERROR durante l'accesso ai token:")
+        print(f"Shape dei token: {tokens.shape}")
+        print(f"Indici massimi richiesti: {latent_locations[latent_indices].max(dim=0)[0]}")
+        print(f"Indici minimi richiesti: {latent_locations[latent_indices].min(dim=0)[0]}")
+        raise e
+    
     unique_latents, counts = torch.unique_consecutive(
         sorted_latents, return_counts=True
     )
