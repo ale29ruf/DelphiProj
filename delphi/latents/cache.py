@@ -15,6 +15,8 @@ from transformers import PreTrainedModel
 from delphi.config import CacheConfig
 from delphi.latents.collect_activations import collect_activations
 
+import sys
+
 location_tensor_shape = Float[Tensor, "batch sequence num_latents"]
 token_tensor_shape = Float[Tensor, "batch sequence"]
 
@@ -258,11 +260,10 @@ class LatentCache:
         """
         print("Numero totale di token:", tokens.numel())
         print("Numero di token richiesti:", n_tokens)
+        sys.exit()
         token_batches = self.load_token_batches(n_tokens, tokens)
         print("Numero di batch creati:", len(token_batches))
         if len(token_batches) > 0:
-            print("Dimensione del primo batch:", token_batches[0].shape)
-            # Oppure, se è un tensore:
             print("Numero di token nel primo batch:", token_batches[0].numel())
         else:
             print("Nessun batch creato!")
