@@ -489,11 +489,37 @@ def generate_statistics_cache(
     Returns:
         CacheStatistics: the statistics
     """
+    print("\nDEBUG INFO:")
+    print(f"Tokens shape: {tokens.shape}")
+    print(f"Latent locations shape: {latent_locations.shape}")
+    print(f"Activations shape: {activations.shape}")
+    print(f"Width: {width}")
+    
+    print("\nLatent locations range:")
+    print(f"Min batch index: {latent_locations[:, 0].min().item()}")
+    print(f"Max batch index: {latent_locations[:, 0].max().item()}")
+    print(f"Min sequence index: {latent_locations[:, 1].min().item()}")
+    print(f"Max sequence index: {latent_locations[:, 1].max().item()}")
+    
     total_n_tokens = tokens.shape[0] * tokens.shape[1]
-
+    print(f"Total tokens: {total_n_tokens}")
+    
     latent_locations, latents = latent_locations[:, :2], latent_locations[:, 2]
-
-    # torch always sorts for unique, so we might as well do it
+    
+    # Aggiungi controllo e correzione
+    if latent_locations[:, 0].max() >= tokens.shape[0]:
+        print("\nWARNING: Batch indices in latent_locations exceed tokens batch dimension!")
+        print(f"Will filter out invalid indices...")
+        
+        # Filtra le posizioni valide
+        valid_mask = latent_locations[:, 0] < tokens.shape[0]
+        print(f"Valid locations: {valid_mask.sum()} out of {len(valid_mask)}")
+        
+        latent_locations = latent_locations[valid_mask]
+        latents = latents[valid_mask]
+        activations = activations[valid_mask]
+    
+    # Continua con il codice originale
     sorted_latents, latent_indices = latents.sort()
     sorted_activations = activations[latent_indices]
     sorted_tokens = tokens[latent_locations[latent_indices]]
