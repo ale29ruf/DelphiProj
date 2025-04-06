@@ -489,46 +489,43 @@ def generate_statistics_cache(
     Returns:
         CacheStatistics: the statistics
     """
-    print("\nDEBUG INFO:")
-    print(f"Tokens shape: {tokens.shape}")
-    print(f"Latent locations shape: {latent_locations.shape}")
-    print(f"Activations shape: {activations.shape}")
-    print(f"Width: {width}")
+    print("\nDEBUG INFO INIZIALE:")
+    print(f"Type di tokens: {type(tokens)}")
+    print(f"Type di latent_locations: {type(latent_locations)}")
+    print(f"Type di activations: {type(activations)}")
     
-    # Verifica che latent_locations abbia la forma corretta
-    if len(latent_locations.shape) != 2 or latent_locations.shape[1] < 2:
-        print("ERROR: latent_locations ha una forma non valida")
-        print(f"Shape attesa: (N, 3), Shape trovata: {latent_locations.shape}")
+    # Verifica che tutti gli input siano tensori PyTorch
+    if not isinstance(tokens, torch.Tensor):
+        print("ERROR: tokens non è un tensore PyTorch")
+        return
+    if not isinstance(latent_locations, torch.Tensor):
+        print("ERROR: latent_locations non è un tensore PyTorch")
+        return
+    if not isinstance(activations, torch.Tensor):
+        print("ERROR: activations non è un tensore PyTorch")
+        return
+    
+    print("\nDimensioni base:")
+    print(f"Tokens shape: {list(tokens.shape)}")
+    try:
+        print(f"Latent locations shape: {list(latent_locations.shape)}")
+    except:
+        print("ERROR: Impossibile accedere alla shape di latent_locations")
+        print(f"Contenuto di latent_locations: {latent_locations}")
+        return
+    print(f"Activations shape: {list(activations.shape)}")
+    
+    # Se arriviamo qui, possiamo procedere con il resto del codice
+    total_n_tokens = tokens.shape[0] * tokens.shape[1]
+    print(f"Total tokens: {total_n_tokens}")
+    
+    try:
+        latent_locations, latents = latent_locations[:, :2], latent_locations[:, 2]
+    except Exception as e:
+        print("\nERROR durante l'estrazione delle posizioni:")
+        print(f"Errore: {str(e)}")
         return
         
-    # Estrai le posizioni in modo sicuro
-    batch_indices = latent_locations[:, 0] if latent_locations.shape[1] > 0 else None
-    seq_indices = latent_locations[:, 1] if latent_locations.shape[1] > 1 else None
-    
-    if batch_indices is not None and seq_indices is not None:
-        print("\nIndici batch:")
-        print(f"Min: {batch_indices.min().item()}")
-        print(f"Max: {batch_indices.max().item()}")
-        print(f"Media: {batch_indices.float().mean().item():.2f}")
-        print(f"Numero totale di indici: {len(batch_indices)}")
-        
-        print("\nIndici sequenza:")
-        print(f"Min: {seq_indices.min().item()}")
-        print(f"Max: {seq_indices.max().item()}")
-        print(f"Media: {seq_indices.float().mean().item():.2f}")
-    
-    # Normalizza gli indici dei batch per sicurezza
-    if batch_indices is not None:
-        batch_size = tokens.shape[0]
-        latent_locations = latent_locations.clone()
-        latent_locations[:, 0] = torch.clamp(batch_indices, 0, batch_size - 1)
-    
-    total_n_tokens = tokens.shape[0] * tokens.shape[1]
-    print(f"\nTotal tokens: {total_n_tokens}")
-    
-    # Estrai le posizioni e i latenti in modo sicuro
-    latent_locations, latents = latent_locations[:, :2], latent_locations[:, 2]
-    
     # Ordina e processa
     sorted_latents, latent_indices = latents.sort()
     sorted_activations = activations[latent_indices]
