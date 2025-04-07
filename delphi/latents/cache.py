@@ -455,6 +455,14 @@ class LatentCache:
         else:
             log_path = self.log_path / "hookpoint_firing_counts.pt"
 
+        """
+        il file hookpoint_firing_counts.pt contiene un dizionario che tiene traccia di quante volte ogni neurone 
+        nell'autoencoder sparso si è "attivato" durante l'elaborazione dei token. Specificamente:
+        Struttura del file:
+        È un dizionario Python dove le chiavi sono i nomi degli hookpoint (es. "layers.5")
+        Per ogni hookpoint, contiene un tensore PyTorch che registra il conteggio delle attivazioni per ogni neurone
+        """
+
         log_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(self.hookpoint_firing_counts, log_path)
 
@@ -470,9 +478,9 @@ class CacheStatistics:
 
 @torch.inference_mode()
 def generate_statistics_cache(
-    tokens: Int[Tensor, "batch sequence"],
-    latent_locations: Int[Tensor, "n_activations 3"],
-    activations: Float[Tensor, "n_activations"],
+    tokens: Int[Tensor, "batch sequence"], # tensore che contiene batch di sequenze di token (ogni riga è una sequenza di token)
+    latent_locations: Int[Tensor, "n_activations 3"], # per ogni attivazione latente ci sono 3 coordinate: [batch_idx, seq_idx, feature_idx]
+    activations: Float[Tensor, "n_activations"], # per ciascuna attivazione latente viene memorizzato un valore di attivazione (l'intensità dell'attivazione)
     width: int,
     verbose: bool = False,
 ) -> CacheStatistics:
@@ -489,57 +497,15 @@ def generate_statistics_cache(
     Returns:
         CacheStatistics: the statistics
     """
-    print("\nDEBUG INFO INIZIALE:")
-    print(f"Type di tokens: {type(tokens)}")
-    print(f"Type di latent_locations: {type(latent_locations)}")
-    print(f"Type di activations: {type(activations)}")
-    
-    # Verifica che tutti gli input siano tensori PyTorch
-    if not isinstance(tokens, torch.Tensor):
-        print("ERROR: tokens non è un tensore PyTorch")
-        return
-    if not isinstance(latent_locations, torch.Tensor):
-        print("ERROR: latent_locations non è un tensore PyTorch")
-        return
-    if not isinstance(activations, torch.Tensor):
-        print("ERROR: activations non è un tensore PyTorch")
-        return
-    
-    print("\nDimensioni base:")
-    print(f"Tokens shape: {list(tokens.shape)}")
-    try:
-        print(f"Latent locations shape: {list(latent_locations.shape)}")
-    except:
-        print("ERROR: Impossibile accedere alla shape di latent_locations")
-        print(f"Contenuto di latent_locations: {latent_locations}")
-        return
-    print(f"Activations shape: {list(activations.shape)}")
-    
-    # Se arriviamo qui, possiamo procedere con il resto del codice
     total_n_tokens = tokens.shape[0] * tokens.shape[1]
-    print(f"Total tokens: {total_n_tokens}")
-    
-    try:
-        latent_locations, latents = latent_locations[:, :2], latent_locations[:, 2]
-    except Exception as e:
-        print("\nERROR durante l'estrazione delle posizioni:")
-        print(f"Errore: {str(e)}")
-        return
-        
-    # Ordina e processa
+
+    latent_locations, latents = latent_locations[:, :2], latent_locations[:, 2]
+
+    # torch always sorts for unique, so we might as well do it
     sorted_latents, latent_indices = latents.sort()
     sorted_activations = activations[latent_indices]
-    
-    # Accesso sicuro ai token
-    try:
-        sorted_tokens = tokens[latent_locations[latent_indices]]
-    except IndexError as e:
-        print("\nERROR durante l'accesso ai token:")
-        print(f"Shape dei token: {tokens.shape}")
-        print(f"Indici massimi richiesti: {latent_locations[latent_indices].max(dim=0)[0]}")
-        print(f"Indici minimi richiesti: {latent_locations[latent_indices].min(dim=0)[0]}")
-        raise e
-    
+    sorted_tokens = tokens[latent_locations[latent_indices]]
+
     unique_latents, counts = torch.unique_consecutive(
         sorted_latents, return_counts=True
     )
