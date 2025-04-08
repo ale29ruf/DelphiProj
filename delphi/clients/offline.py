@@ -64,6 +64,7 @@ class Offline(Client):
             tensor_parallel_size=num_gpus,
             max_model_len=max_model_len,
             enforce_eager=enforce_eager,
+            dtype = "float16",
         )
         self.sampling_params = SamplingParams(max_tokens=500)
         self.tokenizer = AutoTokenizer.from_pretrained(model)
