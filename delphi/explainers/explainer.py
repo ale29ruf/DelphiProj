@@ -60,6 +60,8 @@ class Explainer(ABC):
             )
 
     def parse_explanation(self, text: str) -> str:
+        return text
+    """
         try:
             match = re.search(r"\[EXPLANATION\]:\s*(.*)", text, re.DOTALL)
             if match:
@@ -69,7 +71,7 @@ class Explainer(ABC):
         except Exception as e:
             logger.error(f"Explanation parsing regex failed: {e}")
             raise
-
+    """
     def _highlight(self, str_toks: list[str], activations: list[float]) -> str:
         result = ""
         threshold = max(activations) * self.threshold
