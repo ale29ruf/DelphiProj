@@ -508,24 +508,26 @@ def generate_statistics_cache(
 
     unique_latents, counts = torch.unique_consecutive(
         sorted_latents, return_counts=True
-    )
+    ) # counts: per ogni valore unico in unique_latents, restituisce il numero di volte consecutive in cui quel valore appare nel tensore ordinato
 
     # How many unique latents ever activated on the cached tokens
     num_alive = counts.shape[0]
-    fraction_alive = num_alive / width
+    fraction_alive = num_alive / width # width è il numero di neuroni nell'autoencoder
     if verbose:
-        print(f"Fraction of latents alive: {fraction_alive:%}")
+        print(f"Fraction of latents alive: {fraction_alive:%}") # percentuale di neuroni nell'autoencoder che si sono attivati almeno una volta durante l'elaborazione dei token
     # Compute densities of latents
-    densities = counts / total_n_tokens
+    densities = counts / total_n_tokens # indica quanto frequentemente ogni latente viene attivato rispetto al totale dei token elaborati
 
     # How many fired more than 1% of the time
     one_percent = (densities > 0.01).sum() / width
     # How many fired more than 10% of the time
     ten_percent = (densities > 0.1).sum() / width
     if verbose:
-        print(f"Fraction of latents fired more than 1% of the time: {one_percent:%}")
-        print(f"Fraction of latents fired more than 10% of the time: {ten_percent:%}")
+        print(f"Fraction of latents fired more than 1% of the time: {one_percent:%}") # Frazione di latenti che si attivano più dell'1% delle volte (Utile per identificare i neuroni più attivi e stabili)
+        print(f"Fraction of latents fired more than 10% of the time: {ten_percent:%}") # Frazione di latenti che si attivano più del 10% delle volte (Aiuta a identificare i neuroni più specializzati e frequentemente utilizzati)
+    
     # Try to estimate simple feature frequency
+    # In altri termini, si cerca di stimare quanto frequentemente le feature latenti siano associate a un singolo token, ovvero se l'attivazione di una feature “dipende” fondamentalmente da un solo token
     split_indices = torch.cumsum(counts, dim=0)
     activation_splits = torch.tensor_split(sorted_activations, split_indices[:-1])
     token_splits = torch.tensor_split(sorted_tokens, split_indices[:-1])
@@ -537,11 +539,15 @@ def generate_statistics_cache(
     for _latent_idx, activation_group, token_group in zip(
         unique_latents, activation_splits, token_splits
     ):
-        maybe_single_token, single_token = check_single_feature(
-            activation_group, token_group
-        )
+        maybe_single_token, single_token = check_single_feature( activation_group, token_group )
+        # maybe_single_token rappresenta una stima “tentativa” o debole che quella feature possa essere considerata come attivata da un singolo token
+        # single_token rappresenta una stima più “forte” o sicura che la feature in questione sia effettivamente associata a un singolo token
+        
         num_single_token_features += single_token
-        maybe_single_token_features += maybe_single_token
+        # numero totale di feature che sono fortemente considerate single token
+
+        maybe_single_token_features += maybe_single_token 
+        # numero di feature che, in una prima stima, sembrano essere “single token” (almeno in modo parziale o incerto)
 
     single_token_fraction = maybe_single_token_features / num_alive
     strong_token_fraction = num_single_token_features / num_alive

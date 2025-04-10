@@ -39,7 +39,13 @@ def build_prompt(
         cot=cot,
     )
 
+    print(">>>>>>>>>>>>>>>>>>>>> build_prompt in prompt_builder.py <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+
+    print(">>>>>>>>>>>>>>>>>>>>> few_shot_examples in prompt_builder.py <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+    print(few_shot_examples)
+
     messages.extend(few_shot_examples)
+    print("Messages extended: ", messages)
 
     user_start = f"\n{examples}\n"
 
@@ -49,6 +55,8 @@ def build_prompt(
             "content": user_start,
         }
     )
+
+    print("Final messages before return: ", messages)
 
     return messages
 
