@@ -34,29 +34,24 @@ def build_prompt(
         cot=cot,
     )
 
+    # Creazione dei 3 esempi da dare all'explainer
     few_shot_examples = build_examples(
         activations=activations,
         cot=cot,
     )
-
-    print(">>>>>>>>>>>>>>>>>>>>> build_prompt in prompt_builder.py <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-
-    print(">>>>>>>>>>>>>>>>>>>>> few_shot_examples in prompt_builder.py <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-    print(few_shot_examples)
-
+    
+    # Aggiunta dei 3 esempi al prompt (che specifica cosa deve fare l'explainer)
     messages.extend(few_shot_examples)
-    print("Messages extended: ", messages)
 
-    user_start = f"\n{examples}\n"
+    user_start = f"\n{examples}\n" # "examples" sono gli esempi da spiegare (è il parametro passato) 
 
+    # Aggiungo gli esempi da spiegare al messaggio sa passare all'explainer
     messages.append(
         {
             "role": "user",
             "content": user_start,
         }
     )
-
-    print("Final messages before return: ", messages)
 
     return messages
 

@@ -39,18 +39,16 @@ class Explainer(ABC):
     """Additional keyword arguments for the generation client."""
 
     async def __call__(self, record: LatentRecord) -> ExplainerResult:
-    
-        print(f"Building prompt for {record.latent}")
-        print(f"Train examples: {record.train}")
-        
+
+        # Creazione del prompt da dare all'explainer
         messages = self._build_prompt(record.train)
 
-        print(f"Messages: {messages}")
-
+        # Generazione dell'explainer
         response = await self.client.generate(
             messages, temperature=self.temperature, **self.generation_kwargs
         )
 
+        # Parsing dell'explainer
         print(f"Response: {response}")
 
         try:
