@@ -19,7 +19,7 @@ def load_tokenized_data(
     from datasets import load_dataset
     from sparsify.data import chunk_and_tokenize
 
-    data = load_dataset(dataset_repo, name=dataset_name, split=dataset_split)
+    data = load_dataset(dataset_repo, name=dataset_name, split=dataset_split, trust_remote_code=True)
     data = data.shuffle(seed)
     tokens_ds = chunk_and_tokenize(
         data,  # type: ignore
