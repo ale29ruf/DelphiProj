@@ -35,7 +35,7 @@ class ConstructorConfig(Serializable):
     faiss_embedding_cache_enabled: bool = True
     """Whether to cache embeddings for FAISS similarity search."""
 
-    example_ctx_len: int = 64
+    example_ctx_len: int = 128
     """Length of each sampled example sequence. Longer sequences
     reduce detection scoring performance in weak models.
     Has to be a multiple of the cache context length."""
