@@ -36,7 +36,7 @@ class OpenRouter(Client):
         return Response(msg)
 
     async def generate(  # type: ignore
-        self, prompt: str, raw: bool = False, max_retries: int = 1, **kwargs  # type: ignore
+        self, prompt: str, raw: bool = False, max_retries: int = 3, **kwargs  # type: ignore
     ) -> Response:  # type: ignore
         kwargs.pop("schema", None)
         max_tokens = kwargs.pop("max_tokens", 500)
@@ -54,6 +54,12 @@ class OpenRouter(Client):
                 response = await self.client.post(
                     url=self.url, json=data, headers=self.headers
                 )
+
+                if response.status_code != 200:
+                    print(f"Attempt {attempt + 1}: HTTP {response.status_code} - {response.text}")
+                    await sleep(2)
+                    continue
+
                 if raw:
                     return response.json()
                 result = self.postprocess(response)
@@ -68,7 +74,7 @@ class OpenRouter(Client):
             except Exception as e:
                 logger.warning(f"Attempt {attempt + 1}: {str(e)}, retrying...")
 
-            await sleep(1)
+            await sleep(2)
 
         logger.error("All retry attempts failed.")
         raise RuntimeError("Failed to generate text after multiple attempts.")
