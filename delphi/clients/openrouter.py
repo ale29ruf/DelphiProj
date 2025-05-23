@@ -57,8 +57,6 @@ class OpenRouter(Client):
 
                 if response.status_code != 200:
                     print(f"Attempt {attempt + 1}: HTTP {response.status_code} - {response.text}")
-                    await sleep(2)
-                    continue
 
                 if raw:
                     return response.json()
