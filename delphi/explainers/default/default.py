@@ -13,7 +13,7 @@ class DefaultExplainer(Explainer):
     """Whether to use chain of thought reasoning."""
 
     def _build_prompt(self, examples: list[ActivatingExample]) -> list[dict]:
-        print(">>>>>>>>>>>>>>>>>>>>> _build_prompt in default.py <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+        print(">>>>>>>>>>>>>>>> _build_prompt in default.py <<<<<<<<<<<<<")
         highlighted_examples = []
 
         for i, example in enumerate(examples):

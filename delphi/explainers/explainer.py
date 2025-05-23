@@ -49,10 +49,11 @@ class Explainer(ABC):
         )
 
         # Parsing dell'explainer
-        print(f"Response: {response}")
+        print("In file explainer.py, in __call__")
 
         try:
             explanation = self.parse_explanation(response.text)
+            print(f"Explanation: {explanation}")
             if self.verbose:
                 logger.info(f"Explanation: {explanation}")
                 logger.info(f"Messages: {messages[-1]['content']}")
