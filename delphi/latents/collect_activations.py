@@ -42,7 +42,10 @@ def collect_activations(
 
     for name, module in model.named_modules():
         if name in hookpoints:
-            handle = module.register_forward_hook(create_hook(name, transcode))
+            
+            # registra un hook di tipo "forward" per ogni modulo del modello il cui nome compare nella lista "hookpoints" passata in input
+            # di fatto ogni volta che il modello esegue una fase di forward, l'output dei moduli interessati viene intercettato e memorizzato in activations[hookpoint]
+            handle = module.register_forward_hook(create_hook(name, transcode)) 
             handles.append(handle)
 
     try:

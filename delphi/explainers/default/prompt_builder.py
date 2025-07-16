@@ -45,13 +45,16 @@ def build_prompt(
 
     user_start = f"\n{examples}\n" # "examples" sono gli esempi da spiegare (è il parametro passato) 
 
-    # Aggiungo gli esempi da spiegare al messaggio sa passare all'explainer
+    # Aggiungo gli esempi da spiegare al messaggio da passare all'explainer
     messages.append(
         {
             "role": "user",
             "content": user_start,
         }
     )
+
+    print(">>>>>>>>>>>>>>>> messages in prompt_builder.py <<<<<<<<<<<<<")
+    print(messages)
 
     return messages
 

@@ -226,7 +226,7 @@ class LatentCache:
         print(f"Numero totale di token da processare: {n_tokens}")
         print(f"Forma dei token in input: {tokens.shape}")
 
-        max_batches = n_tokens // tokens.shape[1]
+        max_batches = n_tokens // tokens.shape[1] # tokens.shape[1] sarebbe pari a cache_ctx_len
         print(f"Numero massimo di batch calcolato: {max_batches}")
 
         tokens = tokens[:max_batches]
@@ -238,7 +238,7 @@ class LatentCache:
         token_batches = [
             tokens[self.batch_size * i : self.batch_size * (i + 1), :]
             for i in range(n_mini_batches)
-        ]
+        ] # itero sulle righe di "tokens" ed estraggo i batch
 
         print(f"Numero di batch creati: {len(token_batches)}")
         if len(token_batches) > 0:

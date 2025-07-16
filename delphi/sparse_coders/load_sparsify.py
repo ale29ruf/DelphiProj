@@ -10,12 +10,22 @@ from transformers import PreTrainedModel
 
 def sae_dense_latents(x: Tensor, sae: SparseCoder) -> Tensor:
     """Run `sae` on `x`, yielding the dense activations."""
-    x_in = x.reshape(-1, x.shape[-1])
+    x_in = x.reshape(-1, x.shape[-1]) # si lavora sempre in batch
     encoded = sae.encode(x_in)
     buf = torch.zeros(
         x_in.shape[0], sae.num_latents, dtype=x_in.dtype, device=x_in.device
     )
+
+    # inserisce le attivazioni sparse nel buffer denso (le posizioni non attivate restano a zero)
     buf = buf.scatter_(-1, encoded.top_indices, encoded.top_acts.to(buf.dtype))
+    
+
+    """
+    Infine si ripristina la forma originale del batch: 
+    se all'inizio x.shape = (32, 10, 768) batch di 32 sequenze, ognuna lunga 10 token, con 768 dimensioni 
+    e sae.num_latents = 4096
+    con il seguente reshape passo da buf.shape = (320, 4096) a buf.shape = (32, 10, 4096).
+    """
     return buf.reshape(*x.shape[:-1], -1)
 
 
@@ -68,10 +78,10 @@ def load_sparsify_sparse_coders(
         dict[str, Any]: A dictionary mapping hookpoints to sparse models.
     """
 
-    # Load the sparse models
+    # Load the sparse models from local path
     sparse_model_dict = {}
     name_path = Path(name)
-    if name_path.exists():
+    if name_path.exists(): # è stato specificato un solo hookpoint
         for hookpoint in hookpoints:
             sparse_model_dict[hookpoint] = SparseCoder.load_from_disk(
                 name_path / hookpoint, device=device
@@ -80,7 +90,7 @@ def load_sparsify_sparse_coders(
                 sparse_model_dict[hookpoint] = torch.compile(
                     sparse_model_dict[hookpoint]
                 )
-    else:
+    else: # sono stati specificati più hookpoint
         # Load on CPU first to not run out of memory
         sparse_models = SparseCoder.load_many(name, device="cpu")
         for hookpoint in hookpoints:
@@ -143,10 +153,12 @@ def load_sparsify_hooks(
         if hasattr(sparse_model.cfg, "skip_connection"):
             if sparse_model.cfg.skip_connection:
                 transcode = True
-    return hookpoint_to_sparse_encode, transcode
+
     """
     Per esempio, se specifichi hookpoints=['layers.5']:
     Viene caricato un autoencoder specifico per il layer 5
-    Viene trovato il percorso effettivo nel modello per accedere a quel layer
     Viene creata una funzione che intercetta le attivazioni in quel punto e le passa attraverso l'autoencoder
     """
+
+    return hookpoint_to_sparse_encode, transcode
+    

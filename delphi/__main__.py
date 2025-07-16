@@ -219,8 +219,7 @@ async def process_cache(
     """
     The explainer should be added to a pipe, which will send the explanation requests to the client. 
     The pipe should have a function that happens after the request is completed, 
-    to e.g. save the data, and could also have a function that happens before the request is sent, 
-    e.g to transform some of the data.
+    to save the data
     """
     explainer_pipe = Pipe(process_wrapper(explainer, postprocess=explainer_postprocess))
     """
@@ -310,7 +309,7 @@ def populate_cache(
         run_cfg.seed,
     )
 
-    if run_cfg.filter_bos:
+    if run_cfg.filter_bos: # se si vuole filtrare il BOS token allora bisogna controllare innanzitutto se il tokenizer ne fa uso
         if tokenizer.bos_token_id is None:
             print("Tokenizer does not have a BOS token, skipping BOS filtering")
         else:
@@ -320,11 +319,13 @@ def populate_cache(
             truncated_tokens = masked_tokens[
                 : len(masked_tokens) - (len(masked_tokens) % cache_cfg.cache_ctx_len)
             ]
-            tokens = truncated_tokens.reshape(-1, cache_cfg.cache_ctx_len)
+            tokens = truncated_tokens.reshape(-1, cache_cfg.cache_ctx_len) 
+            # Cambia la forma del tensore da 1D a 2D: -1 fa sì che PyTorch calcoli automaticamente quante righe servono.
+            # cache_cfg.cache_ctx_len diventa il numero fisso di colonne (cioè la lunghezza di ogni blocco di token)
 
 
     """
-    The first step to generate explanations is to cache sparse model activations. 
+    The first step to generate explanations is to cache sparse model activations (sarebbero le attivazioni latenti del SAE). 
     To do so, load your sparse models into the base model, load the tokens you want 
     to cache the activations from, create a LatentCache object and run it.
     """
@@ -365,7 +366,7 @@ def non_redundant_hookpoints(
     if overwrite:
         print("Overwriting results from", results_path)
         return hookpoint_to_sparse_encode
-    in_results_path = [x.name for x in results_path.glob("*")]
+    in_results_path = [x.name for x in results_path.glob("*")] # lista dei nomi degli hookpoint già elaborati 
     if isinstance(hookpoint_to_sparse_encode, dict):
         non_redundant_hookpoints = {
             k: v
@@ -468,7 +469,6 @@ async def run(
 
     """
     If there are hookpoints needing processing:
-    - Processes the cached activations
     - Generates explanations
     - Calculates scores
     - Runs asynchronously for better performance
