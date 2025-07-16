@@ -33,9 +33,6 @@ class DefaultExplainer(Explainer):
 
         highlighted_examples = "\n".join(highlighted_examples)
 
-        print(">>>>>>>>>>>>>>>> highlighted_examples in default.py <<<<<<<<<<<<<")
-        print(highlighted_examples)
-
         return build_prompt(
             examples=highlighted_examples,
             activations=self.activations,

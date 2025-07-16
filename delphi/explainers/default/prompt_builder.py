@@ -53,9 +53,6 @@ def build_prompt(
         }
     )
 
-    print(">>>>>>>>>>>>>>>> messages in prompt_builder.py <<<<<<<<<<<<<")
-    print(messages)
-
     return messages
 
 
