@@ -73,7 +73,7 @@ def _top_k_pools(
         The token windows and activation windows.
     """
     k = min(max_examples, len(max_buffer))
-    top_values, top_indices = torch.topk(max_buffer, k, sorted=True)
+    top_values, top_indices = torch.topk(max_buffer, k, sorted=True) # indici degli esempi con attivazione maggiore
 
     activation_windows = torch.stack([split_activations[i] for i in top_indices])
     token_windows = buffer_tokens[top_indices]
@@ -86,7 +86,7 @@ def pool_max_activation_windows(
     tokens: Float[Tensor, "windows seq"],
     ctx_indices: Float[Tensor, "examples"],
     index_within_ctx: Float[Tensor, "examples"],
-    ctx_len: int,
+    ctx_len: int, # -> sarebbe example_ctx_len
     max_examples: int,
 ) -> tuple[Float[Tensor, "examples ctx_len"], Float[Tensor, "examples ctx_len"]]:
     """
@@ -107,7 +107,10 @@ def pool_max_activation_windows(
     # lengths: the number of activations per unique context window index
     unique_ctx_indices, inverses, lengths = torch.unique_consecutive(
         ctx_indices, return_counts=True, return_inverse=True
-    )
+    ) 
+    # ctx_indices è un tensore 1D che indica in quale example cade ogni attivazione
+    # con torch.unique_consecutive si ottengono gli indici degli example unici
+    # lengths è il numero di example unici
 
     # Get the max activation magnitude within each context window
     max_buffer = torch.segment_reduce(activations, "max", lengths=lengths)
@@ -115,6 +118,8 @@ def pool_max_activation_windows(
     # Deduplicate the context windows
     new_tensor = torch.zeros(len(unique_ctx_indices), ctx_len, dtype=activations.dtype)
     new_tensor[inverses, index_within_ctx] = activations
+    # Si crea una matrice con un numero di righe pari al numero di example unici e un numero di colonne pari a example_ctx_len
+    # Successivamente la matrice viene popolata con le attivazioni latenti, in base all'indice dell'example e all'indice del token all'interno dell'example
 
     tokens = tokens[unique_ctx_indices]
 
@@ -127,7 +132,7 @@ def pool_max_activation_windows(
 
 def constructor(
     record: LatentRecord,
-    activation_data: ActivationData,
+    activation_data: ActivationData, # questo oggetto contiene i dati relativi alle attivazioni del latent
     constructor_cfg: ConstructorConfig,
     tokens: Float[Tensor, "batch seq"],
     tokenizer: PreTrainedTokenizer | PreTrainedTokenizerFast,
@@ -141,24 +146,34 @@ def constructor(
     max_examples = constructor_cfg.max_examples
     min_examples = constructor_cfg.min_examples
 
-    # Get all positions where the latent is active
+    # Get all positions (posizioni assolute, rispetto al dataset, dei token) where the latent is active
+    # activation_data.locations[:, 0] -> indice di batch
+    # activation_data.locations[:, 1] -> indice (relativo) del primo token all'interno della finestra di contesto
+    # Utile per ricostruire la posizione globale di un token quando i dati sono suddivisi in batch e finestre
     flat_indices = (
         activation_data.locations[:, 0] * cache_ctx_len
         + activation_data.locations[:, 1]
     )
-    ctx_indices = flat_indices // example_ctx_len
-    index_within_ctx = flat_indices % example_ctx_len
-    reshaped_tokens = tokens.reshape(-1, example_ctx_len)
-    n_windows = reshaped_tokens.shape[0]
 
-    unique_batch_pos = ctx_indices.unique()
+    """
+    Nel codice seguente, si identificano le finestre di token di lunghezza example_ctx_len in cui il latente 
+    è attivo, si estraggono le più forti e le si salvano come ActivatingExample.
+    """
+    
+    ctx_indices = flat_indices // example_ctx_len # ctx_indices: in quale example cade ciascuna attivazione
+    index_within_ctx = flat_indices % example_ctx_len # index_within_ctx: posizione all'interno dell'example
+    reshaped_tokens = tokens.reshape(-1, example_ctx_len) # token suddivisi in example di lunghezza example_ctx_len
+    n_windows = reshaped_tokens.shape[0] # numero di example totali
+
+    unique_batch_pos = ctx_indices.unique() # batch in questo caso indica un example
 
     mask = torch.ones(n_windows, dtype=torch.bool)
     mask[unique_batch_pos] = False
-    # Indices where the latent is not active
-    non_active_indices = mask.nonzero(as_tuple=False).squeeze()
-    activations = activation_data.activations
 
+    # Indices where the latent is not active
+    non_active_indices = mask.nonzero(as_tuple=False).squeeze() # restituisce gli indici dove la maschera è True, cioè gli indici dei contesti che non attivano il latente
+
+    activations = activation_data.activations # estraggo le attivazioni latenti (dei token)
     # Add activation examples to the record in place
     token_windows, act_windows = pool_max_activation_windows(
         activations=activations,

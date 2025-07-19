@@ -361,7 +361,7 @@ class LatentDataset:
             if data is not None:
                 record = await self._aprocess_latent(data)
                 if record is not None:
-                    yield record
+                    yield record # restituisce un valore record non appena è disponibile, senza bloccare il loop di eventi
             await asyncio.sleep(0)  # Allow other coroutines to run
 
     async def _aprocess_latent(self, latent_data: LatentData) -> LatentRecord | None:
